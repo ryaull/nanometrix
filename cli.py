@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+"""
+NanoMetrix command line: analyse one micrograph or a whole folder.
+
+Examples
+--------
+    python cli.py samples/sem_40nm.png --material Au
+    python cli.py samples/ --outdir outputs --material Au --csv all.csv
+    python cli.py micrograph.tif --nm-per-px 0.37     # skip OCR
+    python cli.py --demo                              # generate and analyse
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from PIL import Image
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from nanometrix import BULK_DENSITY_G_CM3, analyze            # noqa: E402
+from nanometrix.segmentation import SegmentationParams        # noqa: E402
+from nanometrix.viz import (                                  # noqa: E402
+    distribution_figure, overlay_figure, shape_figure,
+)
+
+IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
+
+
+def load_image(path: Path) -> np.ndarray:
+    img = Image.open(path)
+    if img.mode not in ("L", "I;16", "I"):
+        img = img.convert("L")
+    arr = np.asarray(img)
+    if arr.dtype != np.uint8:                 # 16-bit micrographs are common
+        arr = arr.astype(np.float32)
+        lo, hi = float(arr.min()), float(arr.max())
+        arr = ((arr - lo) / (hi - lo) * 255.0) if hi > lo else np.zeros_like(arr)
+        arr = arr.astype(np.uint8)
+    return arr
+
+
+def analyse_one(path: Path, args, outdir: Path) -> pd.DataFrame:
+    image = load_image(path)
+    params = SegmentationParams(
+        polarity=args.polarity,
+        min_area_px=args.min_area,
+        split_touching=not args.no_split,
+        exclude_border=not args.keep_border,
+    )
+    result = analyze(
+        image,
+        nm_per_px=args.nm_per_px,
+        params=params,
+        refine_boundaries=args.refine,
+        material=args.material,
+        density_g_cm3=args.density,
+    )
+
+    print(f"\n=== {path.name} " + "=" * max(4, 58 - len(path.name)))
+    print(result.report())
+
+    stem = path.stem
+    if not args.no_figures:
+        outdir.mkdir(parents=True, exist_ok=True)
+        f = overlay_figure(image, result.labels, result.diameters,
+                           result.unit, title=f"Detected particles - {stem}")
+        f.savefig(outdir / f"{stem}_overlay.png", dpi=150, bbox_inches="tight")
+        g = distribution_figure(result.diameters, result.stats, result.unit)
+        g.savefig(outdir / f"{stem}_distribution.png", dpi=150, bbox_inches="tight")
+        h = shape_figure(result.particles)
+        h.savefig(outdir / f"{stem}_shape.png", dpi=150, bbox_inches="tight")
+        import matplotlib.pyplot as plt
+        plt.close("all")
+
+    df = result.particles.copy()
+    if not df.empty:
+        df.insert(0, "image", path.name)
+        if result.calibration.ok:
+            df["nm_per_px"] = result.calibration.nm_per_px
+    if not args.no_figures:
+        (outdir / f"{stem}_report.txt").write_text(result.report())
+    return df
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(
+        description="Automated nanoparticle size and shape analysis "
+                    "from electron micrographs.")
+    ap.add_argument("path", nargs="?", help="image file or folder of images")
+    ap.add_argument("--demo", action="store_true",
+                    help="generate a synthetic micrograph and analyse it")
+    ap.add_argument("--outdir", default="outputs", help="where figures go")
+    ap.add_argument("--csv", default=None, help="write all particles to this CSV")
+    ap.add_argument("--nm-per-px", type=float, default=None,
+                    help="supply calibration instead of reading the scale bar")
+    ap.add_argument("--material", default=None,
+                    choices=sorted(BULK_DENSITY_G_CM3),
+                    help="material, used for the specific-surface-area estimate")
+    ap.add_argument("--density", type=float, default=None,
+                    help="bulk density in g/cm3, overrides --material")
+    ap.add_argument("--polarity", default="auto",
+                    choices=["auto", "bright", "dark"])
+    ap.add_argument("--min-area", type=int, default=40,
+                    help="smallest accepted particle, in pixels")
+    ap.add_argument("--no-split", action="store_true",
+                    help="skip watershed separation of touching particles")
+    ap.add_argument("--keep-border", action="store_true",
+                    help="keep particles clipped by the frame (biases sizes low)")
+    ap.add_argument("--refine", action="store_true",
+                    help="re-cut boundaries at each particle's half-maximum")
+    ap.add_argument("--no-figures", action="store_true")
+    args = ap.parse_args(argv)
+
+    outdir = Path(args.outdir)
+
+    if args.demo:
+        from nanometrix import SynthConfig, generate
+        outdir.mkdir(parents=True, exist_ok=True)
+        demo = outdir / "demo_micrograph.png"
+        r = generate(SynthConfig(seed=7, modality="SEM",
+                                 median_diameter_nm=40, nm_per_px=0.5,
+                                 n_particles=70))
+        Image.fromarray(r.image).save(demo)
+        print(f"Synthetic micrograph written to {demo}")
+        print(f"Ground truth: {len(r.diameters_complete_nm)} complete particles, "
+              f"true D50 = {np.median(r.diameters_complete_nm):.2f} nm")
+        frames = [analyse_one(demo, args, outdir)]
+    else:
+        if not args.path:
+            ap.error("give an image or folder, or use --demo")
+        target = Path(args.path)
+        if target.is_dir():
+            files = sorted(p for p in target.iterdir()
+                           if p.suffix.lower() in IMAGE_SUFFIXES
+                           and not p.name.startswith("_"))
+            if not files:
+                print(f"no images found in {target}", file=sys.stderr)
+                return 1
+        elif target.is_file():
+            files = [target]
+        else:
+            print(f"not found: {target}", file=sys.stderr)
+            return 1
+        frames = [analyse_one(p, args, outdir) for p in files]
+
+    frames = [f for f in frames if not f.empty]
+    if args.csv and frames:
+        allp = pd.concat(frames, ignore_index=True)
+        Path(args.csv).parent.mkdir(parents=True, exist_ok=True)
+        allp.to_csv(args.csv, index=False)
+        print(f"\n{len(allp)} particles written to {args.csv}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

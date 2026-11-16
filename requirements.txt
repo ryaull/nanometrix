@@ -1,0 +1,9 @@
+numpy>=1.24
+scipy>=1.10
+scikit-image>=0.21
+opencv-python>=4.8
+pandas>=2.0
+matplotlib>=3.7
+Pillow>=10.0
+pytesseract>=0.3.10   # needs the Tesseract binary: apt install tesseract-ocr
+streamlit>=1.30       # only for the web app (app.py)

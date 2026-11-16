@@ -1,0 +1,18 @@
+Calibration : 1.096 nm/px (read '250 nm' over 228 px, confidence 1.00)
+Modality    : particles are bright against the background
+Rejected    : 18 touching the frame edge, 0 on size/shape
+
+Particles measured          : 43
+Mean +/- SD                 : 88.69 +/- 22.57 nm
+Median (D50)                : 87.41 nm [95% CI 77.81-93.16]
+D10 / D90                   : 65.96 / 113.93 nm
+Span (D90-D10)/D50          : 0.549
+Log-normal median, GSD      : 85.96 nm, 1.289
+Sauter mean D[3,2]          : 100.06 nm
+De Brouckere mean D[4,3]    : 105.83 nm
+Coefficient of variation    : 25.4 %
+Polydispersity index (PDI)  : 0.0648
+Specific surface area       : 3.11 m2/g (Au, 19.3 g/cm3)
+Mean circularity            : 0.948
+Mean aspect ratio           : 1.075
+Mean solidity               : 0.983

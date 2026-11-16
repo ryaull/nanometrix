@@ -1,0 +1,37 @@
+{
+  "sem_au_40nm": {
+    "true_nm_per_px": 0.5,
+    "scale_bar_nm": 100.0,
+    "n_complete": 46,
+    "true_d50_nm": 40.287,
+    "coverage": 0.38
+  },
+  "tem_au_18nm": {
+    "true_nm_per_px": 0.22,
+    "scale_bar_nm": 50.0,
+    "n_complete": 37,
+    "true_d50_nm": 17.312,
+    "coverage": 0.322
+  },
+  "sem_tio2_90nm": {
+    "true_nm_per_px": 1.1,
+    "scale_bar_nm": 250.0,
+    "n_complete": 43,
+    "true_d50_nm": 87.972,
+    "coverage": 0.369
+  },
+  "tem_ag_45nm": {
+    "true_nm_per_px": 0.55,
+    "scale_bar_nm": 100.0,
+    "n_complete": 40,
+    "true_d50_nm": 41.395,
+    "coverage": 0.331
+  },
+  "sem_dense_40nm": {
+    "true_nm_per_px": 0.5,
+    "scale_bar_nm": 100.0,
+    "n_complete": 73,
+    "true_d50_nm": 42.742,
+    "coverage": 0.684
+  }
+}
