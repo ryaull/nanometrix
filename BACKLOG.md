@@ -4,7 +4,7 @@ Small, real, incremental improvements. Each entry should be implemented as an
 actual working change (code, tests, or docs) before being checked off — no
 placeholder or no-op commits.
 
-- [ ] Add a `tests/` directory with pytest unit tests for `metrics.py`
+- [x] Add a `tests/` directory with pytest unit tests for `metrics.py`
       (equivalent circular diameter, circularity, aspect ratio, solidity
       formulas) using small synthetic contours with known values.
 - [ ] Add pytest unit tests for `calibration.py`'s `parse_label()` function
