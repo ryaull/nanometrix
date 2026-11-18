@@ -7,7 +7,7 @@ placeholder or no-op commits.
 - [x] Add a `tests/` directory with pytest unit tests for `metrics.py`
       (equivalent circular diameter, circularity, aspect ratio, solidity
       formulas) using small synthetic contours with known values.
-- [ ] Add pytest unit tests for `calibration.py`'s `parse_label()` function
+- [x] Add pytest unit tests for `calibration.py`'s `parse_label()` function
       covering common OCR string formats ("100 nm", "100nm", "1 um", "500 Å").
 - [ ] Add a `requirements-dev.txt` and a `tests/test_pipeline_smoke.py` that
       runs the full pipeline end-to-end on one of the bundled `samples/*.png`
