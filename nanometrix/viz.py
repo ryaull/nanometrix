@@ -22,7 +22,12 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+from matplotlib.axes import Axes
 from matplotlib.colors import LinearSegmentedColormap, Normalize
+from matplotlib.figure import Figure
+
+from .metrics import SizeStats
 
 # Sequential blue ramp, steps 200-700.
 _SEQ_BLUE = ["#9ec5f4", "#6da7ec", "#3987e5", "#2a78d6", "#1c5cab", "#104281"]
@@ -36,7 +41,7 @@ INK_MUTED = "#8a8982"
 SURFACE = "#fcfcfb"
 
 
-def _style(ax) -> None:
+def _style(ax: Axes) -> None:
     """Make the frame recede so the data carries the attention."""
     ax.set_facecolor(SURFACE)
     for side in ("top", "right"):
@@ -57,7 +62,7 @@ def overlay_figure(
     title: str = "Detected particles",
     show_index: bool = False,
     dpi: int = 130,
-):
+) -> Figure:
     """Draw particle outlines over the micrograph, coloured by diameter."""
     from skimage.measure import find_contours, regionprops
 
@@ -108,11 +113,11 @@ def overlay_figure(
 
 def distribution_figure(
     diameters: np.ndarray,
-    stats=None,
+    stats: SizeStats | None = None,
     unit: str = "nm",
     bins: int | str = "auto",
     dpi: int = 130,
-):
+) -> Figure:
     """Histogram with the fitted log-normal curve and the percentile triple."""
     d = np.asarray(diameters, dtype=float)
     d = d[np.isfinite(d) & (d > 0)]
@@ -186,7 +191,7 @@ def distribution_figure(
     return fig
 
 
-def shape_figure(df, dpi: int = 130):
+def shape_figure(df: pd.DataFrame | None, dpi: int = 130) -> Figure:
     """Circularity against diameter -- separates spheres from rods and clumps."""
     fig, ax = plt.subplots(figsize=(5.6, 4.0), dpi=dpi)
     if df is None or df.empty:

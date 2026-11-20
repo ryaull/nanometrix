@@ -199,6 +199,28 @@ circularity rather than silently measured; the half-max option underperforms
 the default; and OCR needs a scale bar with a legible burnt-in label, falling
 back to pixel units with a warning when none is found.
 
+### Static typing
+
+`metrics.py` and `viz.py` are fully type-hinted on their public functions and
+pass `mypy --ignore-missing-imports --follow-imports=silent` with zero
+issues. Getting there found one real latent bug: `measure_particles()`
+computed its pixel-to-nanometre scale factor as
+`float(nm_per_px) if calibrated else 1.0`, where `calibrated` is a *separate*
+boolean that happens to imply `nm_per_px is not None` -- true at runtime, but
+invisible to a type checker, which flagged passing an `Optional[float]` to
+`float()`. Harmless in practice (the branch is never taken with `None`), but
+the kind of thing that stops being harmless the next time someone edits the
+surrounding logic. Fixed by making the `is not None` check part of the
+condition itself, so the narrowing is explicit rather than implied.
+
+Running `mypy` over the rest of the package (`nanometrix/`) surfaces five
+pre-existing errors confined to `synth.py` (an `Optional` default on a
+non-optional dataclass field, two assignment-type mismatches, and a tuple
+passed where `cv2.GaussianBlur` wants a kernel-size sequence) -- all in
+synthetic-micrograph generation used for testing and validation, not in the
+measurement path. They're out of scope for this pass; tracked as a backlog
+item.
+
 ## Possible extensions
 
 Swap the classical segmenter for a U-Net or SAM-based one and re-run

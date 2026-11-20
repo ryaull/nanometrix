@@ -59,7 +59,10 @@ def measure_particles(
     """Build a one-row-per-particle table of size and shape descriptors."""
     rows = []
     calibrated = bool(nm_per_px and nm_per_px > 0)
-    s = float(nm_per_px) if calibrated else 1.0
+    # Written with the `nm_per_px is not None` check inline (rather than just
+    # `if calibrated`) so a type checker can narrow `nm_per_px` itself here --
+    # it cannot follow the fact that `calibrated` already implies that.
+    s = float(nm_per_px) if calibrated and nm_per_px is not None else 1.0
 
     for reg in regionprops(labels):
         area_px = float(reg.area)

@@ -12,8 +12,12 @@ placeholder or no-op commits.
 - [x] Add a `requirements-dev.txt` and a `tests/test_pipeline_smoke.py` that
       runs the full pipeline end-to-end on one of the bundled `samples/*.png`
       images and asserts it returns a non-empty particle table.
-- [ ] Add type hints to the public functions in `metrics.py` and `viz.py`
+- [x] Add type hints to the public functions in `metrics.py` and `viz.py`
       that are missing them, and run `mypy` (document any issues found).
+      Found and fixed a real narrowing bug in `measure_particles()`; see the
+      "Static typing" subsection under Engineering notes in the README.
+      - mypy also found 5 pre-existing errors in `synth.py` (out of scope for
+        this item); see new backlog item below.
 - [ ] Add a `CONTRIBUTING.md` with setup instructions (venv, requirements,
       Tesseract OCR install per-OS) distilled from the README's troubleshooting
       notes.
@@ -38,6 +42,10 @@ placeholder or no-op commits.
       dependencies, so the CLI runs without manual OCR installation.
 - [ ] Add a `--confidence-threshold` CLI flag that warns (or exits non-zero)
       when scale-bar OCR confidence falls below a user-set bar.
+- [ ] Fix the 5 pre-existing `mypy` errors in `synth.py` (an `Optional`
+      default on a non-optional dataclass field, two assignment-type
+      mismatches, and a tuple passed where `cv2.GaussianBlur` wants a
+      kernel-size sequence), found while type-checking `metrics.py`/`viz.py`.
 
 When this list empties, add 2-3 new concrete, genuinely useful items here
 (not busywork) before implementing the next one.
