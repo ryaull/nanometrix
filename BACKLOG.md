@@ -18,9 +18,12 @@ placeholder or no-op commits.
       "Static typing" subsection under Engineering notes in the README.
       - mypy also found 5 pre-existing errors in `synth.py` (out of scope for
         this item); see new backlog item below.
-- [ ] Add a `CONTRIBUTING.md` with setup instructions (venv, requirements,
+- [x] Add a `CONTRIBUTING.md` with setup instructions (venv, requirements,
       Tesseract OCR install per-OS) distilled from the README's troubleshooting
-      notes.
+      notes. Also documents a real gotcha found while writing it:
+      `test_pipeline_smoke.py` actually exercises real OCR (unlike
+      `test_calibration.py`) and fails without Tesseract installed --
+      verified by removing the binary and re-running the suite.
 - [ ] Add input validation + a clear error message in `pipeline.analyze()`
       for unreadable/corrupt image files, with a regression test.
 - [ ] Add a `--output-format` flag to `cli.py` supporting `csv` and `json`
