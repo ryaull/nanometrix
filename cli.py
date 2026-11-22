@@ -23,6 +23,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from nanometrix import BULK_DENSITY_G_CM3, analyze            # noqa: E402
+from nanometrix.io import load_grayscale                      # noqa: E402
 from nanometrix.segmentation import SegmentationParams        # noqa: E402
 from nanometrix.viz import (                                  # noqa: E402
     distribution_figure, overlay_figure, shape_figure,
@@ -32,16 +33,7 @@ IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
 
 
 def load_image(path: Path) -> np.ndarray:
-    img = Image.open(path)
-    if img.mode not in ("L", "I;16", "I"):
-        img = img.convert("L")
-    arr = np.asarray(img)
-    if arr.dtype != np.uint8:                 # 16-bit micrographs are common
-        arr = arr.astype(np.float32)
-        lo, hi = float(arr.min()), float(arr.max())
-        arr = ((arr - lo) / (hi - lo) * 255.0) if hi > lo else np.zeros_like(arr)
-        arr = arr.astype(np.uint8)
-    return arr
+    return load_grayscale(path)
 
 
 def analyse_one(path: Path, args, outdir: Path) -> pd.DataFrame:
@@ -117,6 +109,7 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     outdir = Path(args.outdir)
+    had_error = False
 
     if args.demo:
         from nanometrix import SynthConfig, generate
@@ -146,7 +139,16 @@ def main(argv=None) -> int:
         else:
             print(f"not found: {target}", file=sys.stderr)
             return 1
-        frames = [analyse_one(p, args, outdir) for p in files]
+
+        # An unreadable or corrupt image shouldn't take the whole batch
+        # down: report it clearly, skip it, and keep analysing the rest.
+        frames = []
+        for p in files:
+            try:
+                frames.append(analyse_one(p, args, outdir))
+            except ValueError as exc:
+                print(f"skipping {p.name}: {exc}", file=sys.stderr)
+                had_error = True
 
     frames = [f for f in frames if not f.empty]
     if args.csv and frames:
@@ -154,7 +156,7 @@ def main(argv=None) -> int:
         Path(args.csv).parent.mkdir(parents=True, exist_ok=True)
         allp.to_csv(args.csv, index=False)
         print(f"\n{len(allp)} particles written to {args.csv}")
-    return 0
+    return 1 if had_error else 0
 
 
 if __name__ == "__main__":

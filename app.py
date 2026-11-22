@@ -16,9 +16,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import streamlit as st
-from PIL import Image
 
 from nanometrix import BULK_DENSITY_G_CM3, SynthConfig, analyze, generate
+from nanometrix.io import load_grayscale
 from nanometrix.segmentation import SegmentationParams
 from nanometrix.viz import distribution_figure, overlay_figure, shape_figure
 
@@ -26,16 +26,7 @@ st.set_page_config(page_title="NanoMetrix", page_icon="*", layout="wide")
 
 
 def load_uint8(data) -> np.ndarray:
-    img = Image.open(data)
-    if img.mode not in ("L", "I;16", "I"):
-        img = img.convert("L")
-    arr = np.asarray(img)
-    if arr.dtype != np.uint8:
-        arr = arr.astype(np.float32)
-        lo, hi = float(arr.min()), float(arr.max())
-        arr = ((arr - lo) / (hi - lo) * 255.0) if hi > lo else np.zeros_like(arr)
-        arr = arr.astype(np.uint8)
-    return arr
+    return load_grayscale(data)
 
 
 st.title("NanoMetrix")
@@ -105,7 +96,11 @@ if use_demo and uploaded is None:
         f"true scale {truth.nm_per_px:.4g} nm/px."
     )
 elif uploaded is not None:
-    image = load_uint8(uploaded)
+    try:
+        image = load_uint8(uploaded)
+    except ValueError as exc:
+        st.error(f"Could not read the uploaded file: {exc}")
+        st.stop()
 else:
     st.stop()
 

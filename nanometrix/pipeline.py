@@ -60,6 +60,50 @@ class AnalysisResult:
         return "\n".join(head + ["", body] + warn)
 
 
+def _validate_image(image: np.ndarray) -> np.ndarray:
+    """Reject a malformed image array with a message that says what is
+    wrong, instead of letting OpenCV or NumPy fail several calls deep inside
+    calibrate()/segment() with an opaque, implementation-specific error (a
+    bare OpenCV assertion, an AttributeError on None, a silent NaN-to-uint8
+    cast). `analyze()` takes an already-decoded array rather than a file
+    path, so this is the pipeline's one chokepoint for catching a corrupt or
+    unreadable source image, however it was decoded or produced.
+    """
+    if not isinstance(image, np.ndarray):
+        raise ValueError(
+            "analyze() expects a decoded image as a numpy array, got "
+            f"{type(image).__name__!r}. Load the file first (see "
+            "nanometrix.io.load_grayscale) and pass the resulting array, "
+            "not a file path or raw bytes."
+        )
+    if image.ndim not in (2, 3):
+        raise ValueError(
+            "analyze() expects a 2-D grayscale or 3-D (H, W, channels) "
+            f"image array, got an array with shape {image.shape}."
+        )
+    if image.size == 0 or any(d == 0 for d in image.shape):
+        raise ValueError(
+            f"analyze() received an empty image array (shape {image.shape}); "
+            "the source file may be corrupt or failed to decode."
+        )
+    if image.ndim == 3 and image.shape[-1] not in (3, 4):
+        raise ValueError(
+            "analyze() expects a 3-channel (RGB) or 4-channel (RGBA) image "
+            f"when given a 3-D array, got shape {image.shape}."
+        )
+    if not np.issubdtype(image.dtype, np.number):
+        raise ValueError(
+            f"analyze() expects a numeric image array, got dtype {image.dtype}."
+        )
+    if np.issubdtype(image.dtype, np.floating) and not np.isfinite(image).all():
+        raise ValueError(
+            "analyze() received an image containing NaN or infinite pixel "
+            "values; the source file is likely corrupt or was decoded "
+            "incorrectly."
+        )
+    return image
+
+
 def analyze(
     image: np.ndarray,
     nm_per_px: float | None = None,
@@ -76,7 +120,11 @@ def analyze(
     assumes a flat-topped intensity profile, but an SEM particle's brightest
     pixels are its rim rather than its centre, so the "interior" level the
     rule needs is systematically wrong. See validate.py for the numbers.
+
+    Raises `ValueError`, with a message describing the problem, if `image`
+    is not a well-formed decoded image array (see `_validate_image`).
     """
+    image = _validate_image(image)
     warnings: list[str] = []
 
     cal = calibrate(image, manual_nm_per_px=nm_per_px)

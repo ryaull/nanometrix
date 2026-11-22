@@ -199,6 +199,30 @@ circularity rather than silently measured; the half-max option underperforms
 the default; and OCR needs a scale bar with a legible burnt-in label, falling
 back to pixel units with a warning when none is found.
 
+### Input validation
+
+`analyze()` takes an already-decoded array, not a file path, so "corrupt
+image" isn't a decode error at that layer -- it's a malformed array reaching
+the pipeline. Before validation was added, each of the following failed
+several calls deep with an opaque, implementation-specific error instead of
+a message naming the problem: `None` or a non-array (`AttributeError:
+'NoneType' object has no attribute 'ndim'`), a 1-D array (an OpenCV
+"Invalid number of channels" assertion from the internal RGB-to-grayscale
+conversion), an empty array (an OpenCV `!_src.empty()` assertion from
+`morphologyEx`), and a NaN-filled float array (silently cast to garbage
+`uint8` values with only a `RuntimeWarning`, no error at all). `analyze()`
+now checks the array's type, dimensionality, shape and dtype up front and
+raises a `ValueError` describing exactly what's wrong.
+
+The file-loading helpers (`nanometrix.io.load_grayscale`, used by both
+`cli.py` and `app.py`) have the matching fix one layer up: a truncated or
+unidentifiable file used to propagate PIL's own exception
+(`UnidentifiedImageError`, or a bare `OSError("Truncated File Read")`,
+triggered lazily by `Image.load()`/`np.asarray()` rather than by
+`Image.open()` itself) as a raw traceback. It's now caught and re-raised as
+a `ValueError` naming the file, and the CLI skips a bad file in a batch
+rather than aborting the whole run.
+
 ### Static typing
 
 `metrics.py` and `viz.py` are fully type-hinted on their public functions and

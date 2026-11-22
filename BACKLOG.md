@@ -24,8 +24,18 @@ placeholder or no-op commits.
       `test_pipeline_smoke.py` actually exercises real OCR (unlike
       `test_calibration.py`) and fails without Tesseract installed --
       verified by removing the binary and re-running the suite.
-- [ ] Add input validation + a clear error message in `pipeline.analyze()`
+- [x] Add input validation + a clear error message in `pipeline.analyze()`
       for unreadable/corrupt image files, with a regression test.
+      `analyze()` takes a decoded array, not a path, so it now validates the
+      array itself (type/shape/dtype/finite-ness) with a `ValueError` naming
+      the problem, instead of an opaque OpenCV/NumPy failure several calls
+      deep. Also fixed the matching file-level bug this surfaced: `cli.py`
+      and `app.py` each had their own image loader that let a truncated or
+      unidentifiable file's PIL exception escape as a raw traceback;
+      extracted both into `nanometrix/io.load_grayscale()`, which raises a
+      clear `ValueError` instead, and the CLI now skips a bad file in a
+      batch rather than aborting the run. See the new "Input validation"
+      subsection under Engineering notes in the README.
 - [ ] Add a `--output-format` flag to `cli.py` supporting `csv` and `json`
       export of the per-particle table (currently CSV-only).
 - [ ] Add a GitHub Actions workflow (`.github/workflows/tests.yml`) that
