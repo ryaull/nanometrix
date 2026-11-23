@@ -36,8 +36,15 @@ placeholder or no-op commits.
       clear `ValueError` instead, and the CLI now skips a bad file in a
       batch rather than aborting the run. See the new "Input validation"
       subsection under Engineering notes in the README.
-- [ ] Add a `--output-format` flag to `cli.py` supporting `csv` and `json`
+- [x] Add a `--output-format` flag to `cli.py` supporting `csv` and `json`
       export of the per-particle table (currently CSV-only).
+      Added `--output-format {csv,json}`, plus `--output` as a clearer alias
+      for the existing `--csv` flag (kept working unchanged for backward
+      compatibility). Format is inferred from the path's extension when
+      `--output-format` is omitted, defaulting to CSV when neither says
+      otherwise. JSON is written as `to_json(orient="records", indent=2)`.
+      See the new "Output format" subsection under Engineering notes in the
+      README, and `tests/test_cli_output_format.py`.
 - [ ] Add a GitHub Actions workflow (`.github/workflows/tests.yml`) that
       installs dependencies and runs the pytest suite on push/PR.
 - [ ] Add a second, independent half-max-vs-Otsu comparison at a different

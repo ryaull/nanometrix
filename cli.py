@@ -6,6 +6,7 @@ Examples
 --------
     python cli.py samples/sem_40nm.png --material Au
     python cli.py samples/ --outdir outputs --material Au --csv all.csv
+    python cli.py samples/ --outdir outputs --output all.json --output-format json
     python cli.py micrograph.tif --nm-per-px 0.37     # skip OCR
     python cli.py --demo                              # generate and analyse
 """
@@ -87,7 +88,13 @@ def main(argv=None) -> int:
     ap.add_argument("--demo", action="store_true",
                     help="generate a synthetic micrograph and analyse it")
     ap.add_argument("--outdir", default="outputs", help="where figures go")
-    ap.add_argument("--csv", default=None, help="write all particles to this CSV")
+    ap.add_argument("--csv", "--output", dest="output", default=None,
+                    help="write the combined per-particle table to this path "
+                         "(format set by --output-format, else guessed from "
+                         "the extension, defaulting to CSV)")
+    ap.add_argument("--output-format", default=None, choices=["csv", "json"],
+                    help="file format for --csv/--output, overriding "
+                         "whatever its extension would imply")
     ap.add_argument("--nm-per-px", type=float, default=None,
                     help="supply calibration instead of reading the scale bar")
     ap.add_argument("--material", default=None,
@@ -151,11 +158,18 @@ def main(argv=None) -> int:
                 had_error = True
 
     frames = [f for f in frames if not f.empty]
-    if args.csv and frames:
+    if args.output and frames:
         allp = pd.concat(frames, ignore_index=True)
-        Path(args.csv).parent.mkdir(parents=True, exist_ok=True)
-        allp.to_csv(args.csv, index=False)
-        print(f"\n{len(allp)} particles written to {args.csv}")
+        out_path = Path(args.output)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        fmt = args.output_format or (
+            "json" if out_path.suffix.lower() == ".json" else "csv"
+        )
+        if fmt == "json":
+            allp.to_json(out_path, orient="records", indent=2)
+        else:
+            allp.to_csv(out_path, index=False)
+        print(f"\n{len(allp)} particles written to {out_path} ({fmt})")
     return 1 if had_error else 0
 
 

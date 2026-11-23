@@ -66,6 +66,7 @@ sudo apt install tesseract-ocr        # needed for scale-bar OCR
 python cli.py --demo                              # generate and analyse
 python cli.py samples/sem_au_40nm.png --material Au
 python cli.py samples/ --outdir outputs --csv all.csv --material Au
+python cli.py samples/ --output all.json --output-format json --material Au
 python cli.py image.tif --nm-per-px 0.37          # skip OCR
 streamlit run app.py                              # web interface
 python validate.py                                # reproduce the results below
@@ -222,6 +223,19 @@ triggered lazily by `Image.load()`/`np.asarray()` rather than by
 `Image.open()` itself) as a raw traceback. It's now caught and re-raised as
 a `ValueError` naming the file, and the CLI skips a bad file in a batch
 rather than aborting the whole run.
+
+### Output format
+
+The CLI's combined-table flag was CSV-only; it now also writes JSON.
+`--csv`/`--output` take either a `.csv` or `.json` path, and `--output-format
+{csv,json}` overrides whatever the extension would otherwise imply (useful
+for an extensionless path, or to force JSON onto a `.csv`-named file). `--csv`
+is kept as an alias of `--output` rather than removed, so existing scripts
+and the README examples above that predate `--output` keep working unchanged.
+JSON is written with `DataFrame.to_json(orient="records", indent=2)` -- a
+list of per-particle objects, the same shape `pd.read_json` round-trips and
+that a web client can `JSON.parse` directly, as opposed to the default
+`to_json()` orientation (one object per column) that neither consumer wants.
 
 ### Static typing
 
