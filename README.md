@@ -1,5 +1,7 @@
 # NanoMetrix
 
+[![Tests](https://github.com/ryaull/nanometrix/actions/workflows/tests.yml/badge.svg)](https://github.com/ryaull/nanometrix/actions/workflows/tests.yml)
+
 **Automated nanoparticle size and shape metrology from electron micrographs.**
 
 Measures the particle size distribution in an SEM or TEM image automatically,
@@ -170,6 +172,7 @@ cli.py              batch command line
 app.py              Streamlit web interface
 validate.py         the ground-truth experiments above
 samples/            synthetic micrographs + ground_truth.json
+.github/workflows/  CI: runs the pytest suite on push/PR (tests.yml)
 ```
 
 ## Engineering notes

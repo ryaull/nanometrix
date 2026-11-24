@@ -45,8 +45,14 @@ placeholder or no-op commits.
       otherwise. JSON is written as `to_json(orient="records", indent=2)`.
       See the new "Output format" subsection under Engineering notes in the
       README, and `tests/test_cli_output_format.py`.
-- [ ] Add a GitHub Actions workflow (`.github/workflows/tests.yml`) that
+- [x] Add a GitHub Actions workflow (`.github/workflows/tests.yml`) that
       installs dependencies and runs the pytest suite on push/PR.
+      Runs on `ubuntu-latest` across a Python 3.11/3.12 matrix, installs the
+      `tesseract-ocr` apt package (the suite's `test_pipeline_smoke.py`
+      exercises real OCR, per `CONTRIBUTING.md` step 3), installs
+      `requirements-dev.txt`, and runs `pytest -v` on push and PR to `main`.
+      Verified locally first: full suite (79 tests) passes against this
+      environment's installed dependencies before adding the workflow.
 - [ ] Add a second, independent half-max-vs-Otsu comparison at a different
       packing density (20%) to `validate.py` and record the result in the
       README's validation table, to check the Section 5.5 conclusion holds
