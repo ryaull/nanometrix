@@ -53,10 +53,21 @@ placeholder or no-op commits.
       `requirements-dev.txt`, and runs `pytest -v` on push and PR to `main`.
       Verified locally first: full suite (79 tests) passes against this
       environment's installed dependencies before adding the workflow.
-- [ ] Add a second, independent half-max-vs-Otsu comparison at a different
+- [x] Add a second, independent half-max-vs-Otsu comparison at a different
       packing density (20%) to `validate.py` and record the result in the
       README's validation table, to check the Section 5.5 conclusion holds
       outside the originally tested density.
+      Generalized `exp_refinement()` to take `n_particles`/`seed_base`
+      parameters (default unchanged, still the original ~39% coverage run)
+      and added `exp_refinement_density20()`, which picks `n_particles=34`
+      for all four modality/size configs -- chosen by directly measuring
+      `SynthConfig(...).coverage` for each config (mean 20.0-21.0% across 5
+      seeds), not by reusing `exp_density`'s n_particles-to-coverage mapping,
+      which uses different particle sizes and so isn't comparable. Full
+      `validate.py` run (new coverage ~20%): Otsu 1.17% size error / 0.925
+      circularity vs half-max 1.77% / 0.883 -- same ranking as the original
+      ~39% run, so Section 5.5's conclusion holds at this lower density too.
+      See the new README table under "Boundary criterion".
 - [ ] Add a `--batch` mode to `cli.py` that processes every image in a
       directory and writes one combined summary CSV.
 - [ ] Add docstring examples (doctest-style) to the three or four most-used

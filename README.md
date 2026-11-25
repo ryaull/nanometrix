@@ -156,6 +156,23 @@ flat-topped intensity profile, but an SEM particle's brightest pixels are its
 rim, not its centre, so the "interior level" the rule needs is systematically
 wrong. It remains available via `--refine`, defaulted off.
 
+This comparison was run a second time at a different packing density, to
+check the conclusion wasn't an artefact of the ~39% coverage it was first
+measured at:
+
+| Coverage | Method | Size error | Bias | D50 error | Circularity |
+|---|---|---|---|---|---|
+| ~39% | Global Otsu | 1.37% | −0.91% | 0.81% | 0.944 |
+| ~39% | Half-maximum | 1.85% | −1.59% | 1.79% | 0.886 |
+| ~20% | Global Otsu | 1.17% | +0.00% | 0.78% | 0.925 |
+| ~20% | Half-maximum | 1.77% | −1.60% | 1.88% | 0.883 |
+
+Otsu wins on size error and circularity at both densities, by a similar
+margin. That's consistent with the stated mechanism: the rim-brightest
+profile that breaks the half-max rule doesn't depend on how many particles
+are touching, so there was no reason to expect the result to flip at lower
+density, and it didn't. See `exp_refinement_density20()` in `validate.py`.
+
 ![validation](outputs/validation.png)
 
 ## Repository layout

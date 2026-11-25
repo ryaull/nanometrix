@@ -203,15 +203,40 @@ def exp_noise(seeds: int) -> pd.DataFrame:
     return _run(cfgs)
 
 
-def exp_refinement(seeds: int) -> tuple[pd.DataFrame, pd.DataFrame]:
+def exp_refinement(seeds: int, n_particles: int = 70,
+                    seed_base: int = 500) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Global Otsu vs per-particle half-maximum, at a chosen packing density.
+
+    The four (modality, diameter, nm_per_px) combinations all render
+    particles at approximately the same pixel footprint (~80 px across), so
+    `n_particles` alone controls the areal coverage and is comparable across
+    all four. Default `n_particles=70` reproduces the original ~40% coverage
+    comparison; `n_particles=34` (see `exp_refinement_density20`) gives ~20%
+    coverage instead -- a different point on the packing-density curve,
+    picked by sampling `generate()`'s own `coverage` output directly rather
+    than assumed from density-experiment line counts, which don't share this
+    experiment's particle sizes.
+    """
     cfgs = []
     for s in range(seeds):
         for mod, med, npx in (("SEM", 40, 0.5), ("TEM", 18, 0.22),
                               ("SEM", 90, 1.1), ("TEM", 45, 0.55)):
-            cfgs.append(SynthConfig(seed=500 + s, modality=mod,
+            cfgs.append(SynthConfig(seed=seed_base + s, modality=mod,
                                     median_diameter_nm=med, nm_per_px=npx,
-                                    n_particles=70))
+                                    n_particles=n_particles))
     return _run(cfgs, refine=False), _run(cfgs, refine=True)
+
+
+def exp_refinement_density20(seeds: int) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Same A/B as `exp_refinement`, at ~20% areal coverage instead of ~40%.
+
+    `n_particles=34` was chosen by measuring `SynthConfig(...).coverage`
+    directly for each of the four configs (mean 20.0-21.0% across 5 seeds),
+    not estimated from the unrelated packing-density sweep in `exp_density`,
+    which uses a different particle size and therefore a different
+    n_particles-to-coverage mapping.
+    """
+    return exp_refinement(seeds, n_particles=34, seed_base=600)
 
 
 # --------------------------------------------------------------------------
@@ -316,16 +341,18 @@ def main() -> int:
     print("Running validation. Every number below is measured against a "
           "ground truth\nthe generator chose, not against a human annotation.\n")
 
-    print("[1/5] baseline accuracy ...")
+    print("[1/6] baseline accuracy ...")
     baseline = exp_baseline(seeds)
-    print("[2/5] packing density ...")
+    print("[2/6] packing density ...")
     density = exp_density(seeds)
-    print("[3/5] spatial resolution ...")
+    print("[3/6] spatial resolution ...")
     resolution = exp_resolution(seeds)
-    print("[4/5] electron dose ...")
+    print("[4/6] electron dose ...")
     noise = exp_noise(seeds)
-    print("[5/5] boundary criterion A/B ...")
+    print("[5/6] boundary criterion A/B (~40% coverage) ...")
     ref_off, ref_on = exp_refinement(seeds)
+    print("[6/6] boundary criterion A/B (~20% coverage) ...")
+    ref_off_d20, ref_on_d20 = exp_refinement_density20(seeds)
 
     pd.concat([
         baseline.assign(experiment="baseline"),
@@ -334,6 +361,8 @@ def main() -> int:
         noise.assign(experiment="noise"),
         ref_off.assign(experiment="refine_off"),
         ref_on.assign(experiment="refine_on"),
+        ref_off_d20.assign(experiment="refine_off_density20"),
+        ref_on_d20.assign(experiment="refine_on_density20"),
     ], ignore_index=True).to_csv(out / "validation_results.csv", index=False)
 
     line = "=" * 68
@@ -380,12 +409,24 @@ def main() -> int:
         print(f"  {int(r['noise_electrons']):8d} {r['recall']*100:7.1f}% "
               f"{r['mape']:8.2f}% {r['calib']*100:14.0f}%")
 
-    print(f"\n{line}\nBOUNDARY CRITERION: global Otsu vs per-particle half-max\n{line}")
+    print(f"\n{line}\nBOUNDARY CRITERION: global Otsu vs per-particle half-max "
+          f"(~{ref_off['coverage'].mean()*100:.0f}% coverage)\n{line}")
     for name, d in (("global Otsu   ", ref_off), ("half-maximum  ", ref_on)):
         print(f"  {name} size err {d['size_mape'].mean():5.2f}%  "
               f"bias {d['size_bias_pct'].mean():+5.2f}%  "
               f"D50 err {d['d50_error_pct'].abs().mean():5.2f}%  "
               f"circularity {d['circularity'].mean():.3f}")
+
+    print(f"\n{line}\nBOUNDARY CRITERION at a different packing density "
+          f"(~{ref_off_d20['coverage'].mean()*100:.0f}% coverage)\n{line}")
+    for name, d in (("global Otsu   ", ref_off_d20), ("half-maximum  ", ref_on_d20)):
+        print(f"  {name} size err {d['size_mape'].mean():5.2f}%  "
+              f"bias {d['size_bias_pct'].mean():+5.2f}%  "
+              f"D50 err {d['d50_error_pct'].abs().mean():5.2f}%  "
+              f"circularity {d['circularity'].mean():.3f}")
+    same_winner = (ref_off_d20['size_mape'].mean() < ref_on_d20['size_mape'].mean()) == \
+                  (ref_off['size_mape'].mean() < ref_on['size_mape'].mean())
+    print(f"  -> Otsu still wins on size error at this density: {same_winner}")
 
     make_figure(density, resolution, noise, baseline, out / "validation.png")
     print(f"\nWrote {out/'validation_results.csv'} and {out/'validation.png'}")
