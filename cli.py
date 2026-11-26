@@ -7,6 +7,7 @@ Examples
     python cli.py samples/sem_40nm.png --material Au
     python cli.py samples/ --outdir outputs --material Au --csv all.csv
     python cli.py samples/ --outdir outputs --output all.json --output-format json
+    python cli.py samples/ --outdir outputs --summary batch_summary.csv
     python cli.py micrograph.tif --nm-per-px 0.37     # skip OCR
     python cli.py --demo                              # generate and analyse
 """
@@ -23,7 +24,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from nanometrix import BULK_DENSITY_G_CM3, analyze            # noqa: E402
+from nanometrix import AnalysisResult, BULK_DENSITY_G_CM3, analyze  # noqa: E402
 from nanometrix.io import load_grayscale                      # noqa: E402
 from nanometrix.segmentation import SegmentationParams        # noqa: E402
 from nanometrix.viz import (                                  # noqa: E402
@@ -37,7 +38,7 @@ def load_image(path: Path) -> np.ndarray:
     return load_grayscale(path)
 
 
-def analyse_one(path: Path, args, outdir: Path) -> pd.DataFrame:
+def analyse_one(path: Path, args, outdir: Path) -> tuple[pd.DataFrame, AnalysisResult]:
     image = load_image(path)
     params = SegmentationParams(
         polarity=args.polarity,
@@ -77,7 +78,48 @@ def analyse_one(path: Path, args, outdir: Path) -> pd.DataFrame:
             df["nm_per_px"] = result.calibration.nm_per_px
     if not args.no_figures:
         (outdir / f"{stem}_report.txt").write_text(result.report())
-    return df
+    return df, result
+
+
+def image_summary_row(name: str, result: AnalysisResult) -> dict:
+    """One combined-summary row for `name`: particle count, calibration, size
+    statistics and mean shape descriptors -- everything `result.report()`
+    prints for a single image, flattened to one row so a batch run over a
+    folder produces one small table instead of requiring the full
+    per-particle `--output` CSV to be grouped by `image` and re-aggregated.
+    """
+    row: dict = {
+        "image": name,
+        "n_particles": result.n_particles,
+        "unit": result.unit,
+        "calibration_ok": result.calibration.ok,
+        "calibration_source": result.calibration.source,
+        "nm_per_px": result.calibration.nm_per_px,
+        "calibration_confidence": result.calibration.confidence,
+    }
+    if result.stats is not None:
+        stats = result.stats.to_dict()
+        # "unit" is already set above from result.unit (same value); keep
+        # every other SizeStats field (mean/median/d10/d50/d90/span/PDI/
+        # SSA/...) verbatim rather than hand-picking a subset.
+        row.update({k: v for k, v in stats.items() if k != "unit"})
+    if result.shape:
+        row["mean_circularity"] = result.shape.get("circularity")
+        row["mean_aspect_ratio"] = result.shape.get("aspect_ratio")
+        row["mean_solidity"] = result.shape.get("solidity")
+    row["n_warnings"] = len(result.warnings)
+    row["warnings"] = "; ".join(result.warnings)
+    row["error"] = ""
+    return row
+
+
+def error_summary_row(name: str, error: str) -> dict:
+    """Summary row for an image that raised instead of analysing -- keeps it
+    visible in the combined --summary table (with n_particles=0 and the
+    message) instead of only ever appearing as a stderr line, like the
+    --output per-particle table already drops it silently.
+    """
+    return {"image": name, "n_particles": 0, "error": error}
 
 
 def main(argv=None) -> int:
@@ -95,6 +137,10 @@ def main(argv=None) -> int:
     ap.add_argument("--output-format", default=None, choices=["csv", "json"],
                     help="file format for --csv/--output, overriding "
                          "whatever its extension would imply")
+    ap.add_argument("--summary", default=None,
+                    help="write one combined row per image (particle count, "
+                         "calibration, size/shape statistics) to this CSV "
+                         "path -- most useful when analysing a folder")
     ap.add_argument("--nm-per-px", type=float, default=None,
                     help="supply calibration instead of reading the scale bar")
     ap.add_argument("--material", default=None,
@@ -129,7 +175,9 @@ def main(argv=None) -> int:
         print(f"Synthetic micrograph written to {demo}")
         print(f"Ground truth: {len(r.diameters_complete_nm)} complete particles, "
               f"true D50 = {np.median(r.diameters_complete_nm):.2f} nm")
-        frames = [analyse_one(demo, args, outdir)]
+        demo_df, demo_result = analyse_one(demo, args, outdir)
+        frames = [demo_df]
+        summary_rows = [image_summary_row(demo.name, demo_result)]
     else:
         if not args.path:
             ap.error("give an image or folder, or use --demo")
@@ -150,12 +198,23 @@ def main(argv=None) -> int:
         # An unreadable or corrupt image shouldn't take the whole batch
         # down: report it clearly, skip it, and keep analysing the rest.
         frames = []
+        summary_rows = []
         for p in files:
             try:
-                frames.append(analyse_one(p, args, outdir))
+                df, result = analyse_one(p, args, outdir)
+                frames.append(df)
+                summary_rows.append(image_summary_row(p.name, result))
             except ValueError as exc:
                 print(f"skipping {p.name}: {exc}", file=sys.stderr)
                 had_error = True
+                summary_rows.append(error_summary_row(p.name, str(exc)))
+
+    if args.summary and summary_rows:
+        summary_df = pd.DataFrame(summary_rows)
+        summary_path = Path(args.summary)
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_df.to_csv(summary_path, index=False)
+        print(f"{len(summary_df)} image summaries written to {summary_path}")
 
     frames = [f for f in frames if not f.empty]
     if args.output and frames:

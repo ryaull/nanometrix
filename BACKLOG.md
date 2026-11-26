@@ -68,8 +68,22 @@ placeholder or no-op commits.
       circularity vs half-max 1.77% / 0.883 -- same ranking as the original
       ~39% run, so Section 5.5's conclusion holds at this lower density too.
       See the new README table under "Boundary criterion".
-- [ ] Add a `--batch` mode to `cli.py` that processes every image in a
+- [x] Add a `--batch` mode to `cli.py` that processes every image in a
       directory and writes one combined summary CSV.
+      Processing every image in a directory already worked (`cli.py
+      samples/ --output all.csv` has done that since `--output-format` was
+      added), so there was no gap there; what that produces is one row per
+      *particle*, not a summary. Added `--summary PATH` instead of a
+      same-named `--batch` flag, since the real gap was the summary output,
+      not the directory handling: it writes one row per *image* (particle
+      count, calibration, D10/D50/D90/mean/median/span/PDI/SSA/..., mean
+      circularity/aspect ratio/solidity, warning count) to a CSV, built from
+      the same `AnalysisResult` each image already produces. A corrupt image
+      in the batch gets its own row (`n_particles=0` plus the error message)
+      instead of silently disappearing, which the per-particle `--output`
+      table already does for a skipped file. See the new "Batch summary"
+      subsection under Engineering notes in the README, and
+      `tests/test_cli_batch_summary.py`.
 - [ ] Add docstring examples (doctest-style) to the three or four most-used
       functions in `metrics.py` and `calibration.py`.
 - [ ] Review and tighten `segmentation.py`'s watershed parameters against the

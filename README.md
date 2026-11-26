@@ -69,6 +69,7 @@ python cli.py --demo                              # generate and analyse
 python cli.py samples/sem_au_40nm.png --material Au
 python cli.py samples/ --outdir outputs --csv all.csv --material Au
 python cli.py samples/ --output all.json --output-format json --material Au
+python cli.py samples/ --outdir outputs --summary batch_summary.csv  # one row per image
 python cli.py image.tif --nm-per-px 0.37          # skip OCR
 streamlit run app.py                              # web interface
 python validate.py                                # reproduce the results below
@@ -256,6 +257,22 @@ JSON is written with `DataFrame.to_json(orient="records", indent=2)` -- a
 list of per-particle objects, the same shape `pd.read_json` round-trips and
 that a web client can `JSON.parse` directly, as opposed to the default
 `to_json()` orientation (one object per column) that neither consumer wants.
+
+### Batch summary
+
+Pointing the CLI at a folder already analyses every image in it and can
+combine the results into one `--output`/`--csv` table -- but that table is
+one row per *particle*, so getting per-image numbers out of a 50-image batch
+meant loading it and grouping by `image` yourself. `--summary PATH` writes
+the per-image numbers directly: one row per image with its particle count,
+calibration (nm/px, OCR source and confidence), the full `SizeStats` table
+(mean/median/D10/D50/D90/span/log-normal fit/D32/D43/PDI/CV%/SSA/...), mean
+circularity/aspect ratio/solidity, and a warning count -- everything
+`result.report()` prints for one image, flattened into a row. A corrupt
+image already gets skipped (with a message) rather than aborting the whole
+batch; `--summary` now also gives it its own row (`n_particles=0` plus the
+error text) instead of letting it disappear from the table the way it
+already does from `--output`.
 
 ### Static typing
 
