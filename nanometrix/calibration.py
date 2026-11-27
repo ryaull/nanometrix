@@ -203,7 +203,27 @@ def _ocr_text(patch: np.ndarray) -> str:
 
 
 def parse_label(text: str) -> tuple[float, str] | None:
-    """Pull a length and unit out of OCR output, tolerating its usual errors."""
+    """Pull a length and unit out of OCR output, tolerating its usual errors.
+
+    Examples
+    --------
+    >>> from nanometrix.calibration import parse_label
+    >>> parse_label("100 nm")
+    (100.0, '100 nm')
+    >>> parse_label("2.5 um")
+    (2500.0, '2.5 um')
+
+    A comma decimal point and an embedded label (both common on real
+    instrument burn-ins) are tolerated:
+
+    >>> parse_label("scale: 2,5 mm")
+    (2500000.0, '2,5 mm')
+
+    Text with no recognisable length-and-unit pair returns ``None``:
+
+    >>> parse_label("no scale bar here") is None
+    True
+    """
     if not text:
         return None
     cleaned = (text.replace("\n", " ")

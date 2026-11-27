@@ -296,6 +296,37 @@ synthetic-micrograph generation used for testing and validation, not in the
 measurement path. They're out of scope for this pass; tracked as a backlog
 item.
 
+### Doctest examples
+
+`measure_particles()`, `specific_surface_area()` and `summarize_sizes()` in
+`metrics.py`, and `parse_label()` in `calibration.py`, now carry runnable
+doctest-style examples in their docstrings -- chosen as the module's
+most-called public functions (by reference count across `pipeline.py`,
+`cli.py` and the test suite), and ones whose examples can be deterministic
+without an image, Tesseract or a GPU. `calibrate()` was deliberately left
+out: a meaningful example needs a real scale-bar image and Tesseract OCR,
+whose read is not guaranteed bit-for-bit reproducible across OCR engine
+versions, which would make the doctest itself flaky rather than a reliable
+usage example.
+
+Two numeric traps the examples needed to route around: `round()` on a value
+pulled from a pandas `DataFrame` column returns a numpy scalar
+(`np.float64`), whose `repr()` under numpy >= 2.0 is `np.float64(11.28)`, not
+`11.28` -- so the measure_particles examples cast to `float()` before
+rounding, matching what `SizeStats`'s fields already do internally. And a
+10x10 pixel square's equivalent circular diameter (ECD, from area) is
+*larger* than its side length and its circularity is below 1 -- expected,
+not a bug: a square has more perimeter than a circle of the same area, which
+is exactly what circularity measures.
+
+These examples are wired into the test suite (not just decorative) by
+`tests/test_doctests.py`, which runs `doctest.testmod()` against both
+modules and fails if an example's output goes stale. It collects only these
+two modules rather than enabling pytest's blanket `--doctest-modules`, so a
+`>>>` appearing in another module's explanatory (non-runnable) docstring
+text -- several modules in this codebase use `>>>`-free prose instead, but
+nothing rules out one doing so later -- can never be mistaken for a test.
+
 ## Possible extensions
 
 Swap the classical segmenter for a U-Net or SAM-based one and re-run

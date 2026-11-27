@@ -84,8 +84,20 @@ placeholder or no-op commits.
       table already does for a skipped file. See the new "Batch summary"
       subsection under Engineering notes in the README, and
       `tests/test_cli_batch_summary.py`.
-- [ ] Add docstring examples (doctest-style) to the three or four most-used
+- [x] Add docstring examples (doctest-style) to the three or four most-used
       functions in `metrics.py` and `calibration.py`.
+      Added runnable examples to `measure_particles`, `specific_surface_area`
+      and `summarize_sizes` (metrics.py) and `parse_label` (calibration.py)
+      -- the module's most-referenced public functions, picked by grepping
+      call sites across `pipeline.py`/`cli.py`/tests, and ones with
+      deterministic output with no image/Tesseract/GPU dependency.
+      `calibrate()` was left out: it needs a real scale-bar image and a live
+      OCR read, which isn't guaranteed reproducible across Tesseract
+      versions. Wired into the test suite via `tests/test_doctests.py`
+      (`doctest.testmod()` on just these two modules, not a blanket
+      `--doctest-modules`) so a stale example fails CI instead of silently
+      rotting. See the new "Doctest examples" subsection under Engineering
+      notes in the README.
 - [ ] Review and tighten `segmentation.py`'s watershed parameters against the
       packing-density sweep data already in `outputs/validation_results.csv`;
       document any tuning in the README.

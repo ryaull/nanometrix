@@ -56,7 +56,35 @@ def measure_particles(
     labels: np.ndarray,
     nm_per_px: float | None = None,
 ) -> pd.DataFrame:
-    """Build a one-row-per-particle table of size and shape descriptors."""
+    """Build a one-row-per-particle table of size and shape descriptors.
+
+    Examples
+    --------
+    A single 10x10 pixel square particle, calibrated at 2 nm/px. Area-derived
+    ECD for a square is slightly larger than its side length (same area as a
+    circle of this diameter), and a square's circularity is below 1 because
+    its perimeter is less efficient than a circle's for the same area:
+
+    >>> import numpy as np
+    >>> from nanometrix.metrics import measure_particles
+    >>> labels = np.zeros((20, 20), dtype=int)
+    >>> labels[5:15, 5:15] = 1
+    >>> df = measure_particles(labels, nm_per_px=2.0)
+    >>> int(df.loc[0, "label"])
+    1
+    >>> round(float(df.loc[0, "ecd_px"]), 2)
+    11.28
+    >>> round(float(df.loc[0, "ecd_nm"]), 2)
+    22.57
+    >>> round(float(df.loc[0, "circularity"]), 3)
+    0.927
+
+    An all-background label image returns an empty table with the full set
+    of columns, rather than one with no columns at all:
+
+    >>> list(measure_particles(np.zeros((10, 10), dtype=int)).columns)[:3]
+    ['label', 'centroid_row', 'centroid_col']
+    """
     rows = []
     calibrated = bool(nm_per_px and nm_per_px > 0)
     # Written with the `nm_per_px is not None` check inline (rather than just
@@ -169,6 +197,26 @@ def specific_surface_area(d32_nm: float, density_g_cm3: float) -> float:
     precisely because it is defined as the diameter of the sphere with the
     same surface-to-volume ratio as the whole population, so a polydisperse
     sample and its D[3,2] sphere share an SSA by construction.
+
+    Examples
+    --------
+    10 nm gold spheres (bulk density 19.30 g/cm^3):
+
+    >>> from nanometrix.metrics import specific_surface_area
+    >>> round(specific_surface_area(d32_nm=10.0, density_g_cm3=19.30), 3)
+    31.088
+
+    Halving the diameter doubles the surface area per gram:
+
+    >>> round(specific_surface_area(5.0, 19.30) / specific_surface_area(10.0, 19.30), 3)
+    2.0
+
+    An unphysical (non-positive) size or density degrades to NaN rather than
+    raising, consistent with the rest of this module:
+
+    >>> import math
+    >>> math.isnan(specific_surface_area(d32_nm=0.0, density_g_cm3=1.0))
+    True
     """
     if d32_nm <= 0 or density_g_cm3 <= 0:
         return float("nan")
@@ -183,7 +231,31 @@ def summarize_sizes(
     material: str | None = None,
     density_g_cm3: float | None = None,
 ) -> SizeStats | None:
-    """Reduce a set of diameters to the statistics a report needs."""
+    """Reduce a set of diameters to the statistics a report needs.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from nanometrix.metrics import summarize_sizes
+    >>> d = np.array([10., 11., 9., 12., 10., 11., 9., 13., 10., 12.])
+    >>> stats = summarize_sizes(d, unit="nm")
+    >>> stats.n
+    10
+    >>> round(stats.mean, 2)
+    10.7
+    >>> round(stats.d50, 2)
+    10.5
+    >>> round(stats.sauter_d32, 2)
+    11.0
+
+    An empty or all-invalid input (no positive, finite diameters) returns
+    ``None`` instead of a degenerate statistics object:
+
+    >>> summarize_sizes(np.array([])) is None
+    True
+    >>> summarize_sizes(np.array([-1.0, 0.0, float("nan")])) is None
+    True
+    """
     d = np.asarray(diameters, dtype=float)
     d = d[np.isfinite(d) & (d > 0)]
     if d.size == 0:
