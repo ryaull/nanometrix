@@ -59,7 +59,16 @@ class SegmentationParams:
     fill_holes: bool = True
 
     split_touching: bool = True
-    peak_min_distance_frac: float = 0.55  # of the estimated particle radius
+    # Of the estimated particle radius. Raised from 0.55 to 0.70 after
+    # measuring the packing-density sweep in outputs/validation_results.csv:
+    # at high coverage the lower value over-split touching particles (cutting
+    # through a particle's interior rather than its true boundary), which
+    # undersized the survivors and biased the population D50 by several
+    # percent. 0.70 trades a few points of recall at high density (fewer,
+    # larger touching clusters get left merged rather than split) for
+    # consistently better precision and population-level size accuracy; see
+    # "Watershed peak-distance tuning" under Engineering notes in the README.
+    peak_min_distance_frac: float = 0.70
     peak_footprint_min: int = 3
 
     min_area_px: int = 40             # below this, it is noise, not a particle

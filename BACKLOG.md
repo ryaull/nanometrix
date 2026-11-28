@@ -98,9 +98,23 @@ placeholder or no-op commits.
       `--doctest-modules`) so a stale example fails CI instead of silently
       rotting. See the new "Doctest examples" subsection under Engineering
       notes in the README.
-- [ ] Review and tighten `segmentation.py`'s watershed parameters against the
+- [x] Review and tighten `segmentation.py`'s watershed parameters against the
       packing-density sweep data already in `outputs/validation_results.csv`;
       document any tuning in the README.
+      Swept `peak_min_distance_frac` (0.55 default through 0.80) against the
+      two degraded packing-density points (130/160 particles, ~68%/71%
+      coverage) and found the old default was over-splitting: markers too
+      close together cut the watershed boundary through a particle's own
+      interior rather than its true neighbour contact, undersizing survivors
+      and pulling the population D50 down. Raised the default to 0.70 --
+      the point past which precision/D50-error gains slow sharply while
+      recall is still within a few points of the old default. Verified no
+      regression on the baseline, electron-dose, spatial-resolution and
+      boundary-criterion (Otsu vs half-max, both coverages) experiments
+      first; re-ran the full `validate.py` suite and refreshed
+      `outputs/validation_results.csv`/`validation.png` to match. See the
+      new "Watershed peak-distance tuning" subsection under Engineering
+      notes in the README.
 - [ ] Add a minimal `Dockerfile` that bundles Tesseract OCR and the Python
       dependencies, so the CLI runs without manual OCR installation.
 - [ ] Add a `--confidence-threshold` CLI flag that warns (or exits non-zero)

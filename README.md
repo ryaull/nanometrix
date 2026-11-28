@@ -109,27 +109,31 @@ mass-thickness contrast as *exponential* attenuation, I = I₀exp(−t/λ).
 | Metric | Result |
 |---|---|
 | Scale bar read correctly | 100% of images, 0.18% mean calibration error |
-| Detection recall | 99.1% |
-| Detection precision | 98.1% |
+| Detection recall | 99.0% |
+| Detection precision | 98.6% |
 | Per-particle size error | 1.60% (mean absolute) |
-| Population D50 error | 2.05% (mean absolute) |
-| True vs measured D50 | r = 0.9993 |
+| Population D50 error | 1.82% (mean absolute) |
+| True vs measured D50 | r = 0.9996 |
 
 **Packing density** — the dominant error source, and the reason the watershed
 stage exists:
 
 | Coverage | Recall | D50 error |
 |---|---|---|
-| 7% | 100% | −1.4% |
+| 7% | 100% | +0.7% |
 | 28% | 98.2% | −0.0% |
-| 44% | 99.2% | −0.7% |
-| 60% | 97.9% | −1.5% |
-| 68% | 91.6% | −3.8% |
-| 71% | 89.9% | −2.8% |
+| 44% | 99.2% | −0.3% |
+| 60% | 97.6% | −1.1% |
+| 68% | 88.8% | −2.2% |
+| 71% | 86.5% | −1.1% |
 
-Accuracy holds to about 60% coverage. Beyond that, watershed cuts particles
-at their contact necks and the measured diameter drifts low — so dilute the
-sample rather than trusting a crowded image.
+Accuracy holds to about 60% coverage. Beyond that, watershed still cuts into
+some touching particles at their contact necks, and recall falls as more
+clusters are left merged rather than split — so dilute the sample rather than
+trusting a crowded image. The watershed peak-distance parameter was tuned
+against this exact sweep to trade a few points of high-density recall for
+better size accuracy and precision; see "Watershed peak-distance tuning"
+under Engineering notes.
 
 **Spatial resolution** — how few pixels a particle can span:
 
@@ -326,6 +330,48 @@ two modules rather than enabling pytest's blanket `--doctest-modules`, so a
 `>>>` appearing in another module's explanatory (non-runnable) docstring
 text -- several modules in this codebase use `>>>`-free prose instead, but
 nothing rules out one doing so later -- can never be mistaken for a test.
+
+### Watershed peak-distance tuning
+
+`segmentation.py`'s watershed split finds one marker per particle by taking
+local maxima of the distance transform at least `peak_min_distance_frac *
+estimated_radius_px` apart; two markers closer than that collapse into one,
+so a lower value splits more aggressively. It defaulted to 0.55, chosen
+without reference to the packing-density sweep that `validate.py` now
+produces. Sweeping it against that exact sweep (`outputs/validation_results.csv`,
+`n_particles_cfg` 130/160, the two points where accuracy was already known to
+degrade) shows the old default was over-splitting, not under-splitting: a
+closer pair of markers cuts the watershed boundary through a particle's own
+interior rather than its true neighbour-to-neighbour contact, which undersizes
+both resulting fragments and pulls the population median down.
+
+| peak_min_distance_frac | Recall @130 | Precision @130 | D50 err @130 | Recall @160 | Precision @160 | D50 err @160 |
+|---|---|---|---|---|---|---|
+| 0.55 (old default) | 91.6% | 88.8% | −3.8% | 89.9% | 88.9% | −2.8% |
+| 0.60 | 90.2% | 91.4% | −3.1% | 88.2% | 91.8% | −2.0% |
+| 0.65 | 90.2% | 92.9% | −2.9% | 87.1% | 94.3% | −1.5% |
+| **0.70 (new default)** | **88.8%** | **95.3%** | **−2.2%** | **86.5%** | **96.0%** | **−1.1%** |
+| 0.75 | 87.9% | 96.1% | −1.8% | 86.5% | 97.5% | −0.6% |
+| 0.80 | 87.6% | 97.5% | −1.1% | 85.1% | 98.0% | +0.0% |
+
+The trade-off is monotonic in both directions: raising the value keeps
+recovering size accuracy and precision all the way to 0.80, at a continuing
+recall cost. 0.70 was picked as the point past which precision and D50 error
+stop improving quickly (mean abs. per-particle size error at 160 particles:
+2.10% at 0.55, down to 2.06% at 0.70, 2.03% at 0.80 -- most of the easy gain
+is already had by 0.70) while recall is still within a few points of the old
+default, rather than pushed to the extreme that buys the least additional
+accuracy for the most additional recall.
+
+Checked for regressions elsewhere before adopting: the baseline, electron-dose
+and spatial-resolution sweeps (all well below the ~68% coverage where this
+matters) are unchanged or very slightly improved -- e.g. the dose=8
+(heaviest-noise) point improves from −9.5% to −2.2% D50 error, since noise
+also fragments distance-transform peaks the same way crowding does. The
+boundary-criterion A/B (global Otsu vs. half-maximum, both at ~39% and ~20%
+coverage, well under the regime this change targets) is unaffected to two
+decimal places and Otsu still wins by the same margin, so neither of the
+README's two existing boundary-criterion tables needed to change.
 
 ## Possible extensions
 
